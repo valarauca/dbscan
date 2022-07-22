@@ -68,6 +68,7 @@ where
     T: Copy,
 { }
 
+/// Describes a collection of points. Traits for `Vec<T>` and `P<T>` are already implemented.
 pub trait Population<P,T>:
 where
     f64: From<T>,
@@ -75,8 +76,7 @@ where
     for<'a> &'a P: IntoIterator<Item=&'a T>,
     P: Point<T>,
     for<'b> &'b Self: IntoIterator<Item=&'b P>,
-    Self: std::convert::AsRef<[P]>,
-    //for<'c> Self: std::ops::Index<usize,Output=&'c P>,
+    Self: std::convert::AsRef<[P]> + std::ops::Index<usize,Output=P>,
 { 
     fn length(&self) -> usize {
         <Self as std::convert::AsRef<[P]>>::as_ref(self).len()
@@ -89,7 +89,13 @@ where
     for<'a> &'a P: IntoIterator<Item=&'a T>,
     P: Point<T>,
 { }
-
+impl<P,T> Population<P,T> for [P]
+where
+    f64: From<T>,
+    T: Copy,
+    for<'a> &'a P: IntoIterator<Item=&'a T>,
+    P: Point<T>,
+{ }
 
 /// Calculate euclidean distance between two vectors
 ///
@@ -208,15 +214,19 @@ where
     }
 
     #[inline]
-    fn range_query<P>(&self, sample: &P, population: &Vec<Vec<T>>) -> Vec<usize>
+    fn range_query<A,C,P>(&self, sample: &A, population: &C) -> Vec<usize>
     where
-        for<'a> &'a P: IntoIterator<Item=&'a T>,
+        for<'a> &'a A: IntoIterator<Item=&'a T>,
+        for<'b> &'b C: IntoIterator<Item=&'b P>,
+        for<'c> &'c P: IntoIterator<Item=&'c T>,
+        A: Point<T>,
         P: Point<T>,
+        C: Population<P,T>,
     {
         population
-            .iter()
+            .into_iter()
             .enumerate()
-            .filter(|(_, pt)| sample.distance::<Vec<T>,T>(*pt) < self.eps)
+            .filter(|(_, pt)| <A as Point<T>>::distance::<P,T>(sample, *pt) < self.eps)
             .map(|(idx, _)| idx)
             .collect()
     }
