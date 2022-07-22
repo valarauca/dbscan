@@ -184,13 +184,19 @@ where
         self
     }
 
-    fn expand_cluster(
+    fn expand_cluster<C,P>(
         &mut self,
-        population: &Vec<Vec<T>>,
+        population: &C,
         index: usize,
         neighbors: &[usize],
         cluster: usize,
-    ) {
+    )
+    where
+        for<'b> &'b C: IntoIterator<Item=&'b P>,
+        for<'c> &'c P: IntoIterator<Item=&'c T>,
+        P: Point<T>,
+        C: Population<P,T>,
+    {
         self.c[index] = Core(cluster);
         for &n_idx in neighbors {
             // Have we previously visited this point?
@@ -271,12 +277,18 @@ where
     ///     ]
     /// );
     /// ```
-    pub fn run(mut self, population: &Vec<Vec<T>>) -> Vec<Classification> {
-        self.c = (0..population.len()).map(|_| Noise).collect();
-        self.v = (0..population.len()).map(|_| false).collect();
+    pub fn run<C,P>(mut self, population: &C) -> Vec<Classification>
+    where
+        for<'b> &'b C: IntoIterator<Item=&'b P>,
+        for<'c> &'c P: IntoIterator<Item=&'c T>,
+        P: Point<T>,
+        C: Population<P,T>,
+    {
+        self.c = (0..population.length()).map(|_| Noise).collect();
+        self.v = (0..population.length()).map(|_| false).collect();
 
         let mut cluster = 0;
-        for (idx, sample) in population.iter().enumerate() {
+        for (idx, sample) in population.into_iter().enumerate() {
             let v = self.v[idx];
             if !v {
                 self.v[idx] = true;
