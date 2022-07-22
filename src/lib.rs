@@ -208,11 +208,15 @@ where
     }
 
     #[inline]
-    fn range_query(&self, sample: &[T], population: &Vec<Vec<T>>) -> Vec<usize> {
+    fn range_query<P>(&self, sample: &P, population: &Vec<Vec<T>>) -> Vec<usize>
+    where
+        for<'a> &'a P: IntoIterator<Item=&'a T>,
+        P: Point<T>,
+    {
         population
             .iter()
             .enumerate()
-            .filter(|(_, pt)| euclidean_distance(sample, pt) < self.eps)
+            .filter(|(_, pt)| sample.distance::<Vec<T>,T>(*pt) < self.eps)
             .map(|(idx, _)| idx)
             .collect()
     }
