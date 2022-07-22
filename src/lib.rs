@@ -15,7 +15,7 @@
 
 use Classification::{Core, Edge, Noise};
 
-
+/// Point is a collection of Dimensions (`T`)
 pub trait Point<T>:
 where
     f64: From<T>,
@@ -97,25 +97,6 @@ where
     P: Point<T>,
 { }
 
-/// Calculate euclidean distance between two vectors
-///
-/// This is the default distance function
-#[inline]
-pub fn euclidean_distance<T>(a: &[T], b: &[T]) -> f64
-where
-    f64: From<T>,
-    T: Copy,
-{
-    <[T] as Point<T>>::distance::<[T],T>(a,b)
-        /*
-    a.iter()
-        .zip(b.iter())
-        .fold(0f64, |acc, (&x, &y)| {
-            acc + (f64::from(x) - f64::from(y)).powi(2)
-        }).sqrt()
-        */
-}
-
 /// Classification according to the DBSCAN algorithm
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub enum Classification {
@@ -133,10 +114,14 @@ pub enum Classification {
 /// * `eps` - maximum distance between datapoints within a cluster
 /// * `min_points` - minimum number of datapoints to make a cluster
 /// * `input` - a Vec<Vec<f64>> of datapoints, organized by row
-pub fn cluster<T>(eps: f64, min_points: usize, input: &Vec<Vec<T>>) -> Vec<Classification>
+pub fn cluster<T,P,C>(eps: f64, min_points: usize, input: &C) -> Vec<Classification>
 where
     T: Copy,
     f64: From<T>,
+    for<'a> &'a P: IntoIterator<Item=&'a T>,
+    P: Point<T>,
+    for<'b> &'b C: IntoIterator<Item=&'b P>,
+    C: Population<P,T> + std::convert::AsRef<[P]> + std::ops::Index<usize,Output=P>,
 {
     Model::new(eps, min_points).run(input)
 }
@@ -152,9 +137,9 @@ where
     /// Minimum number of points in a cluster
     pub mpt: usize,
 
-    distance: fn(&[T], &[T]) -> f64,
     c: Vec<Classification>,
     v: Vec<bool>,
+    marker: std::marker::PhantomData<T>,
 }
 
 impl<T> Model<T>
@@ -173,15 +158,8 @@ where
             mpt: min_points,
             c: Vec::new(),
             v: Vec::new(),
-            distance: euclidean_distance,
+            marker: std::marker::PhantomData,
         }
-    }
-
-    /// Change the function used to calculate distance between points.
-    /// Euclidean distance is the default measurement used.
-    pub fn set_distance_fn<F>(mut self, func: fn(&[T], &[T]) -> f64) -> Model<T> {
-        self.distance = func;
-        self
     }
 
     fn expand_cluster<C,P>(
