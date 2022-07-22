@@ -15,6 +15,82 @@
 
 use Classification::{Core, Edge, Noise};
 
+
+pub trait Point<T>:
+where
+    f64: From<T>,
+    T: Copy,
+    for<'a> &'a Self: IntoIterator<Item=&'a T>,
+{
+    #[inline(always)]
+    fn distance<A,B>(&self, other: &A) -> f64
+    where
+        f64: From<B>,
+        B: Copy,
+        for<'b> &'b A: IntoIterator<Item=&'b B>,
+        A: Point<B> + ?Sized,
+    {
+        self.into_iter()
+            .zip(other.into_iter())
+            .fold(0f64, |acc, (&x, &y)| {
+                acc + (f64::from(x) - f64::from(y)).powi(2)
+            }).sqrt()
+    }
+}
+impl<T> Point<T> for [T]
+where
+    f64: From<T>,
+    T: Copy,
+{ }
+impl<T> Point<T> for Vec<T>
+where
+    f64: From<T>,
+    T: Copy,
+{ }
+impl<T> Point<T> for [T;1]
+where
+    f64: From<T>,
+    T: Copy,
+{ }
+impl<T> Point<T> for [T;2]
+where
+    f64: From<T>,
+    T: Copy,
+{ }
+impl<T> Point<T> for [T;3]
+where
+    f64: From<T>,
+    T: Copy,
+{ }
+impl<T> Point<T> for [T;4]
+where
+    f64: From<T>,
+    T: Copy,
+{ }
+
+pub trait Population<P,T>:
+where
+    f64: From<T>,
+    T: Copy,
+    for<'a> &'a P: IntoIterator<Item=&'a T>,
+    P: Point<T>,
+    for<'b> &'b Self: IntoIterator<Item=&'b P>,
+    Self: std::convert::AsRef<[P]>,
+    //for<'c> Self: std::ops::Index<usize,Output=&'c P>,
+{ 
+    fn length(&self) -> usize {
+        <Self as std::convert::AsRef<[P]>>::as_ref(self).len()
+    }
+}
+impl<P,T> Population<P,T> for Vec<P>
+where
+    f64: From<T>,
+    T: Copy,
+    for<'a> &'a P: IntoIterator<Item=&'a T>,
+    P: Point<T>,
+{ }
+
+
 /// Calculate euclidean distance between two vectors
 ///
 /// This is the default distance function
@@ -24,11 +100,14 @@ where
     f64: From<T>,
     T: Copy,
 {
+    <[T] as Point<T>>::distance::<[T],T>(a,b)
+        /*
     a.iter()
         .zip(b.iter())
         .fold(0f64, |acc, (&x, &y)| {
             acc + (f64::from(x) - f64::from(y)).powi(2)
         }).sqrt()
+        */
 }
 
 /// Classification according to the DBSCAN algorithm
