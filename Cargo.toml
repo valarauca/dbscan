@@ -8,3 +8,5 @@ repository = "https://github.com/lazear/dbscan.git"
 homepage = "https://github.com/lazear/dbscan"
 
 [dependencies]
+rstar = "0.9.3"
+num-traits = "0.2.0"
