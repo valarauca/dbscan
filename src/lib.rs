@@ -17,44 +17,10 @@ use std::fmt::Debug;
 
 extern crate num_traits;
 use num_traits::{Bounded,Num,Signed};
-
 use Classification::{Core, Edge, Noise};
 
-/// DataScalar describes a value.
-pub trait DataScalar: Bounded + Num + Signed + PartialOrd<Self> + Copy + Clone + Debug
-{
-    fn normalize(arg: f64) -> Self;
-    fn to_calc(&self) -> f64;
-}
-impl DataScalar for f32 {
-    fn normalize(arg: f64) -> Self { arg as f32 }
-    fn to_calc(&self) -> f64 { *self as f64 }
-}
-impl DataScalar for f64 {
-    fn normalize(arg: f64) -> Self { arg }
-    fn to_calc(&self) -> f64 { *self as f64 }
-}
-impl DataScalar for isize {
-    fn normalize(arg: f64) -> Self {
-        arg.max(std::isize::MAX as f64)
-		.min(std::isize::MIN as f64)
-		.round() as isize
-    }
-    fn to_calc(&self) -> f64 { *self as f64 }
-}
-impl DataScalar for i64 {
-    fn normalize(arg: f64) -> Self {
-        arg.max(std::i64::MAX as f64)
-		.min(std::i64::MIN as f64).round() as i64
-    }
-    fn to_calc(&self) -> f64 { *self as f64 }
-}
-impl DataScalar for i32 {
-    fn normalize(arg: f64) -> Self {
-        arg.max(std::i32::MAX as f64).min(std::i32::MIN as f64).round() as i32
-    }
-    fn to_calc(&self) -> f64 { *self as f64 }
-}
+mod inner;
+pub use crate::inner::data_scalar::{DataScalar};
 
 /// Point is a collection of Dimensions (`T`)
 pub trait Point<T: DataScalar>:  rstar::Point<Scalar=T>
@@ -68,7 +34,6 @@ where
         for<'b> &'b A: IntoIterator<Item=&'b B>,
         A: Point<B> + ?Sized,
     {
-
         // no sqrt of distance is taken per rstar trees requirement
         T::normalize(
             self.into_iter()
@@ -132,6 +97,7 @@ pub enum Classification {
     /// A point with no connections
     Noise,
 }
+
 
 /// Cluster datapoints using the DBSCAN algorithm
 ///
@@ -255,7 +221,7 @@ where
                 visited[n_idx] = true;
                 // What about neighbors of this neighbor? Are they close enough to add into
                 // the current cluster? If so, recurse and add them.
-                let nn = Self::range_query_local(&population[n_idx], tree, eps);
+                let nn: Vec<usize> = Self::range_query_local(&population[n_idx], tree, eps).collect();
                 if nn.len() >= mpt {
                     // n_idx is a core point, we can reach at least min_points neighbors
                     Self::expand_cluster(
@@ -273,20 +239,19 @@ where
         }
     }
 
-    fn range_query_local(
-        point: &P,
-        tree: &rstar::RTree<RTreeItem<T,P>>,
+    fn range_query_local<'a>(
+        point: &'a P,
+        tree: &'a rstar::RTree<RTreeItem<T,P>>,
         eps: T,
-    ) -> Vec<usize> {
+    ) -> impl Iterator<Item=usize> + 'a {
         let eps: T = T::normalize(eps.to_calc().powi(2));
         tree.locate_within_distance(*point, eps)
             .map(|ptr| ptr.get_idx())
-            .collect()
     }
 
     #[cfg(test)]
     fn range_query2(&self, point: P) -> Vec<usize> {
-        Self::range_query_local(&point, &self.tree, self.eps)
+        Self::range_query_local(&point, &self.tree, self.eps).collect()
     }
 
     /*
@@ -353,7 +318,7 @@ where
             let v = self.visited[idx];
             if !v {
                 self.visited[idx] = true;
-                let n = Self::range_query_local(&sample.point, &self.tree, self.eps);
+                let n: Vec<usize> = Self::range_query_local(&sample.point, &self.tree, self.eps).collect();
                 if n.len() >= self.mpt {
                     Self::expand_cluster(
                         &mut self.classification,
@@ -371,6 +336,20 @@ where
         }
         self.classification.clone()
     }
+
+    /*
+    pub fn run2(&mut self) {
+        let iter = self.tree.iter()
+            .map(|ptr| (ptr.get_idx(), ptr))
+            .filter(|(idx,ptr)| !self.visisted[idx]);
+            .map(|(idx,ptr)|
+
+  
+        for (idx, sample) in self.tree.iter().map(|ptr| (ptr.get_idx(),ptr.clone())) {
+            let v = self.visited[idx];
+
+    }
+    */
 }
 
 #[cfg(test)]
